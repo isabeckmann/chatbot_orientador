@@ -1,0 +1,9 @@
+Paciente do sexo masculino, 67 anos, com queixa de dor torácica intensa irradiando para o braço esquerdo, sudorese fria e náuseas iniciadas há 40 minutos. Pressão arterial de 150/100 mmHg, frequência cardíaca de 110 bpm, saturação de oxigênio em 96%. Sem histórico prévio de infarto.
+
+Paciente com 75 anos, portador de DPOC, apresenta dispneia intensa, tosse produtiva e chiado no peito há 2 dias. Saturação de oxigênio em 88%, uso de musculatura acessória para respirar. Está consciente e orientado.
+
+Paciente do sexo feminino, 40 anos, com febre há 3 dias, dor de garganta, tosse seca e cefaleia. Afebril no momento da triagem, saturação 98%, ausculta pulmonar normal.
+
+Paciente de 25 anos, com dor lombar de leve intensidade após esforço físico, sem irradiação ou sintomas neurológicos. Sinais vitais normais.
+
+Paciente de 30 anos que procura o serviço com queixa de dor de cabeça leve, associada a estresse no trabalho. Sem febre, sem outros sintomas. Sinais vitais normais.
