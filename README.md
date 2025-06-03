@@ -9,10 +9,6 @@ Este projeto implementa um assistente de IA com interface web para scolher um Or
 
 O assistente recebe **áreas de interesse do aluno** como entrada, busca **áreas de estudo/atuação semelhantes dos professores** em um banco vetorial e retorna um professor que seja mais adequado para ser orientador.
 
-### Funcionamento geral do assistente
-
-<img src="figs/AgenteIA.png" alt="Fluxo do Assistente de IA" width="500"/>
-
 ## Pré-requisitos
 
 - **Sistema operacional:** Windows 10 ou superior  
