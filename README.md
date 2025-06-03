@@ -1,23 +1,13 @@
-# Assistente de IA para Triagem Clínica
+# Assistente de IA para Escolher um Orientador de Pós-Graduação
 
-Este projeto implementa um assistente de IA com interface web para triagem clínica automatizada, utilizando **embeddings semânticos com BioBERTpt(clin)**, **banco vetorial (ChromaDB)** e um **modelo de linguagem local (Mistral via Ollama)**.
+Este projeto implementa um assistente de IA com interface web para scolher um Orientador de Pós-Graduação automatizado, utilizando **embeddings semânticos com BioBERTpt(clin)**, **banco vetorial (ChromaDB)** e um **modelo de linguagem local (Mistral via Ollama)**.
 
 
 ---
 
 ## Visão Geral
 
-O assistente recebe **sintomas clínicos** como entrada, busca **casos semelhantes** em um banco vetorial e classifica o paciente conforme o **Protocolo de Manchester**, fornecendo também **condutas iniciais**.
-
-### Funcionamento geral do assistente
-
-<img src="figs/AgenteIA.png" alt="Fluxo do Assistente de IA" width="500"/>
-
-### Cores e classificações do Protocolo de Manchester
-
-<img src="figs/infografico-protocolo-manchester.jpg" alt="Protocolo de Manchester" width="450"/>
-
----
+O assistente recebe **áreas de interesse do aluno** como entrada, busca **áreas de estudo/atuação semelhantes dos professores** em um banco vetorial e retorna um professor que seja mais adequado para ser orientador.
 
 ## Pré-requisitos
 
@@ -101,23 +91,6 @@ Abra o navegador em:
 
 [http://localhost:8501](http://localhost:8501)
 
----
-
-## Interface Esperada
-
-- Campo para **descrição dos sintomas**
-- Botão **“Classificar e gerar conduta”**
-- Resultado com:
-  - **Classificação de risco**
-  - **Justificativa clínica**
-  - **Condutas iniciais recomendadas**
-
-#### Exemplo da interface em execução:
-
-<img src="figs/interface.png" alt="Interface do Assistente de Triagem" width="600"/>
-
----
-
 ## Visualizar dados com DB Browser for SQLite
 
 1. Baixe: [https://sqlitebrowser.org](https://sqlitebrowser.org)
@@ -129,20 +102,6 @@ SELECT * FROM collections;
 SELECT * FROM embeddings;
 SELECT * FROM embeddings_queue;
 ```
-
----
-
-## Exemplos de Casos Armazenados
-
-```text
-case_0: Paciente do sexo masculino, 58 anos, com dor torácica intensa...
-case_7: Paciente com falta de ar aos mínimos esforços, tosse produtiva...
-case_15: Paciente com dispneia súbita, cianose e confusão...
-case_19: Paciente com perda súbita de força no braço esquerdo...
-```
-
----
-
 ## Links Úteis
 
 - [LlamaIndex](https://docs.llamaindex.ai/en/stable/)
