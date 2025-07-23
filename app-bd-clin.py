@@ -1,15 +1,14 @@
-from typing import List # Importa o tipo de dado List usado para anotar funções
-import warnings # Importa a biblioteca warnings para gerenciar avisos
-warnings.filterwarnings("ignore", category=UserWarning) # Ignora mensagens de alerta do tipo UserWarning (apenas para deixar a interface limpa)
-import streamlit as st # Importa a biblioteca de interface web Streamlit
-from llama_index.core.llms import ChatMessage # Importa classes do LlamaIndex para usar um modelo de linguagem (LLM)
-from llama_index.llms.ollama import Ollama # Importa o modelo Ollama
-from llama_index.core import Settings # Importa as configurações do LLM
-import nest_asyncio # Permite usar asyncio dentro do Streamlit sem conflito
+from typing import List
+import warnings
+import streamlit as st
+from llama_index.core.llms import ChatMessage
+from llama_index.llms.ollama import Ollama
+from llama_index.core import Settings
+import nest_asyncio
 import asyncio
-import chromadb # Importa o ChromaDB, um banco de dados vetorial para armazenar e buscar embeddings
-from transformers import AutoTokenizer, AutoModel # Importa o modelo BioBERTpt(clin) para geração de embeddings
-import torch # Importa PyTorch para operações tensoriais
+import chromadb
+from transformers import AutoTokenizer, AutoModel
+import torch
 
 # Ajuste para o loop assíncrono no Streamlit
 try:
@@ -23,98 +22,136 @@ Settings.llm = llm
 
 # Cria o cliente do banco de dados vetorial ChromaDB com persistência
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
-collection_name = "triagem_hci"
+collection_name = "orientadores"
 
-# Verifica se a coleção já existe, caso contrário, cria uma nova
-collections = chroma_client.list_collections()
-if collection_name in [col.name for col in collections]:
+# Verifica se a coleção já existe, e a recupera diretamente, sem tentar recriar
+try:
+    # Tenta obter a coleção, caso contrário, cria
     collection = chroma_client.get_collection(collection_name)
-else:
+except chromadb.errors.InternalError:
+    # Se ocorrer um erro (coleção não encontrada), cria a coleção
     collection = chroma_client.create_collection(name=collection_name)
     print(f"Coleção '{collection_name}' criada.")
 
-# Mostra o título da interface da aplicação no navegador
+# Exibe título da interface da aplicação
 st.title("Assistente de Pós-Graduação UNIJUÍ")
 
-# Cria um campo de texto onde enfermeiro(a) (ou outro profissional de saúde) pode informar os sintomas do paciente
-new_case = st.text_area("Descreva suas áreas de interesse para uma Pós-Graduação e lhe retornamos um Orientador (isso pode demorar um pouquinho)")
+# Carregar o arquivo de texto com os dados dos professores
+def load_professors(filepath: str) -> List[dict]:
+    try:
+        professors = []
+        with open(filepath, "r", encoding="utf-8") as file:
+            lines = file.readlines()
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
 
-# Define o dispositivo como CUDA (GPU) se disponível, caso contrário, utiliza CPU
+                if line.startswith("Professor:"):
+                    # Extrair nome
+                    parts = line.split("Área de estudo:")
+                    nome = parts[0].replace("Professor:", "").strip().rstrip(".")
+
+                    # Extrair área de estudo
+                    area_estudo = ""
+                    area_atuacao = "Não informada"
+
+                    if len(parts) > 1:
+                        sub_parts = parts[1].split("Área de atuação:")
+                        area_estudo = sub_parts[0].strip().rstrip(".")
+                        if len(sub_parts) > 1:
+                            area_atuacao = sub_parts[1].strip().rstrip(".")
+
+                    professor_data = {
+                        "nome": nome,
+                        "area_estudo": area_estudo,
+                        "area_atuacao": area_atuacao
+                    }
+                    professors.append(professor_data)
+
+        return professors
+
+    except FileNotFoundError:
+        st.error(f"Arquivo '{filepath}' não encontrado.")
+        return []
+
+
+# Carrega os dados dos professores
+professores = load_professors("casos.txt")
+
+# Função para gerar embedding de texto
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# Carrega o tokenizer e o modelo sem mover para o dispositivo imediatamente
 tokenizer = AutoTokenizer.from_pretrained("pucpr/biobertpt-clin")
-model = AutoModel.from_pretrained("pucpr/biobertpt-clin")
+model = AutoModel.from_pretrained("pucpr/biobertpt-clin").to(device)
 
-# Move o modelo para o dispositivo
-model = model.to(device)
-
-# Função para converter texto em embedding
 def embed_text(text: str) -> List[float]:
-    # Processa o texto e gera embeddings
     inputs = tokenizer(text, return_tensors="pt").to(device)
     with torch.no_grad():
         embeddings = model(**inputs).last_hidden_state.mean(dim=1).squeeze()
     return embeddings.cpu().tolist()
 
-# Função para ler os casos de triagem simulados a partir do arquivo "casos.txt"
-def load_triagem_cases(filepath: str) -> List[str]:
-    try:
-        with open(filepath, "r", encoding="utf-8") as file:
-            return [line.strip() for line in file if line.strip()]
-    except FileNotFoundError:
-        st.error("Arquivo 'casos.txt' não encontrado.")
-        return []
-
-# Carrega os casos simulados do arquivo
-triagem_cases = load_triagem_cases("casos.txt")
+# Adicionar professores ao banco de dados
 existing_ids = set(collection.get()["ids"])
 
-# Insere novos casos no banco vetorial
-for i, case in enumerate(triagem_cases):
-    case_id = f"case_{i}"
-    if case_id not in existing_ids:
+for i, professor in enumerate(professores):
+    professor_id = f"professor_{i}"
+    if professor_id not in existing_ids:
         try:
-            embedding = embed_text(case)
-            collection.add(
-                embeddings=[embedding],
-                ids=[case_id],
-                metadatas=[{"content": case}]
-            )
+            # Verifique se 'area_atuacao' está presente no dicionário antes de tentar acessá-lo
+            if "area_atuacao" in professor:
+                embedding = embed_text(professor["area_atuacao"])
+                collection.add(
+                    embeddings=[embedding],
+                    ids=[professor_id],
+                    metadatas=[{
+                        "nome": professor["nome"],
+                        "area_estudo": professor["area_estudo"],
+                        "area_atuacao": professor["area_atuacao"]
+                    }]
+                )
+            else:
+                st.warning(f"Professor {professor['nome']} não possui área de atuação definida.")
         except RuntimeError as e:
-            st.warning(f"Erro ao processar o caso {case_id}: {e}")
+            st.warning(f"Erro ao processar o professor {professor_id}: {e}")
+
+# Cria um campo de texto onde o aluno pode informar suas áreas de interesse
+new_case = st.text_area("Descreva suas áreas de interesse para uma Pós-Graduação e lhe retornamos um Orientador (isso pode demorar um pouquinho)")
 
 # Quando o botão é clicado, o sistema começa a análise
 if st.button("Mostrar Resultado"):
     if new_case:
         with st.spinner("Classificando..."):
             try:
-                # Converte os sintomas informados pelo usuário em vetor (embedding)
+                # Converte as áreas de interesse do aluno em vetor (embedding)
                 query_embedding = embed_text(new_case)
 
-                # Consulta no banco vetorial os 3 casos mais semelhantes ao novo caso informado
+                # Consulta no banco vetorial os 3 professores mais semelhantes às áreas de interesse do aluno
                 results = collection.query(query_embeddings=[query_embedding], n_results=3)
 
-                # Extrai os conteúdos (textos) dos casos similares retornados
-                similar_cases = [metadata["content"] for metadata in results['metadatas'][0]]
+                # Extrai os dados dos professores mais semelhantes
+                professores_similares = [
+                    {"nome": metadata["nome"], "area_atuacao": metadata["area_atuacao"]} 
+                    for metadata in results['metadatas'][0]
+                ]
 
-                # Monta o prompt com os sintomas e os casos similares
-                input_text = f"Áreas de interesse do aluno: {new_case}\n\nÁreas similares dos professores: {' '.join(similar_cases)}"
+                # Monta o prompt para o modelo de linguagem
+                input_text = f"Áreas de interesse do aluno: {new_case}\n\nÁreas de pesquisa dos professores: "
+                input_text += "\n".join([f"{prof['nome']}: {prof['area_atuacao']}" for prof in professores_similares])
 
                 # Cria a sequência de mensagens para enviar ao modelo de linguagem
                 messages = [
                     ChatMessage(
                         role="system",
-                        content="Você é um Assistente para auxiliar estudantes a escolher um orientador para sua Pós-Graduação com base em seus interesses. Os professores que podem ser orientadores são funcionários da UNIJUÍ."
+                        content="Você é um assistente de inteligência artificial para ajudar estudantes a escolher um orientador de pós-graduação com base em seus interesses. Os professores estão listados com suas respectivas áreas de pesquisa."
                     ),
                     ChatMessage(role="user", content=input_text),
                     ChatMessage(
                         role="user",
-                        content="Com base nas áreas de estudo dos professores, forneça o nome do professor mais qualificado para satisfazer o papel de orientador do aluno com base nos interesses do aluno, justifique sua escolha com base na compatibilidade de interesses do aluno e com as áreas de pesquisa e de atuação dos professores. Não inclua informações irrelevantes como ano de graduação ou locais onde o professor já estudou."
+                        content="Com base nas áreas de interesse do aluno e nas áreas de pesquisa dos professores, forneça o nome do professor mais qualificado para orientá-lo, justificando sua escolha com base na compatibilidade dos interesses."
                     ),
                 ]
 
-                # Tenta executar a consulta ao modelo (via Ollama)
+                # Envia a consulta para o modelo de linguagem (via Ollama)
                 resposta = llm.chat(messages)
                 st.subheader("Orientador sugerido:")
                 st.write(str(resposta))
